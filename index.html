@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PopularMovie | Home</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Inter:wght@300;600;900&display=swap" rel="stylesheet">
+    
+    <style>
+        * { font-style: normal !important; -webkit-tap-highlight-color: transparent; }
+        html { scroll-behavior: smooth; }
+        body { background-color: #050505; color: white; font-family: 'Inter', sans-serif; margin-bottom: 50px; }
+        
+        .movie-card { 
+            background: #111; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); cursor: pointer;
+        }
+        .movie-card:hover { 
+            transform: translateY(-8px); border-color: #E50914; 
+            box-shadow: 0 15px 30px rgba(229,9,20,0.2); 
+        }
+        .poster-container { position: relative; width: 100%; aspect-ratio: 2/3; overflow: hidden; }
+        .poster-img { width: 100%; height: 100%; object-fit: cover; transition: 0.5s; }
+        .movie-card:hover .poster-img { transform: scale(1.1); filter: brightness(0.7); }
+        
+        .play-overlay {
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+            opacity: 0; transition: 0.3s;
+        }
+        .movie-card:hover .play-overlay { opacity: 1; }
+        .play-btn-circle {
+            background: rgba(229,9,20,0.9); width: 50px; height: 50px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 20px;
+            box-shadow: 0 0 20px rgba(229,9,20,0.6); transform: scale(0.8); transition: 0.3s;
+        }
+        .movie-card:hover .play-btn-circle { transform: scale(1); }
+
+        .loading-spinner { 
+            display: none; margin: 40px auto; width: 40px; height: 40px; 
+            border: 4px solid rgba(255,255,255,0.1); border-left-color: #E50914; 
+            border-radius: 50%; animation: spin 1s linear infinite; 
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <nav class="fixed top-0 w-full z-50 px-4 md:px-8 py-4 flex justify-between items-center bg-black/90 backdrop-blur-md border-b border-white/10 shadow-lg">
+        <h1 class="text-xl md:text-3xl font-black uppercase font-[Orbitron]">POPULAR<span class="text-red-600">MOVIE</span></h1>
+        
+        <div class="relative w-1/2 max-w-md hidden md:block">
+            <i class="fa fa-search absolute left-4 top-1/2 -translate-y-1/2 text-[#00d2ff]"></i>
+            <input type="text" id="desktop_search" placeholder="Search for movies..." class="w-full bg-white/10 border border-white/20 rounded-full py-2.5 pl-12 pr-4 text-sm text-white outline-none focus:border-[#00d2ff] transition-all">
+        </div>
+    </nav>
+
+    <div class="pt-24"></div>
+
+    <section class="px-4 md:px-8 max-w-[1400px] mx-auto mb-10">
+        <h3 class="text-white font-black uppercase text-xs md:text-sm mb-4 tracking-widest flex items-center">
+            <i class="fa-solid fa-fire text-red-600 mr-2 text-lg"></i> Trending Right Now
+        </h3>
+        <div id="trending-keywords" class="flex flex-wrap gap-2 md:gap-3">
+            <span class="text-gray-500 text-xs font-bold uppercase">Loading trends...</span>
+        </div>
+    </section>
+
+    <section class="px-4 md:px-8 max-w-[1400px] mx-auto">
+        <h3 class="text-white font-black uppercase text-xs md:text-sm mb-6 tracking-widest border-l-4 border-red-600 pl-3">
+            Latest Uploads
+        </h3>
+        
+        <div id="movie-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+        </div>
+        
+        <div class="loading-spinner" id="loading-spinner"></div>
+    </section>
+
+    <script>
+        // 🎯 OYAGE ALUTH www DOMAIN EKA METHANATA DAMMA
+        const API_BASE = "https://www.popularmovie.lat";
+        
+        let currentPage = 1; 
+        let isFetching = false; 
+        let addedMovieIds = new Set(); 
+
+        window.onload = () => {
+            loadTrending();
+            loadMovies(currentPage);
+        };
+
+        async function loadTrending() {
+            try {
+                const response = await fetch(`${API_BASE}/api/trending`);
+                const result = await response.json();
+                
+                if(result.data && result.data.everyoneSearch) {
+                    const container = document.getElementById("trending-keywords");
+                    container.innerHTML = "";
+                    
+                    result.data.everyoneSearch.forEach(item => {
+                        const tagHTML = `
+                            <span class="bg-white/5 border border-white/10 hover:border-[#00d2ff] hover:bg-white/10 text-gray-300 hover:text-white px-4 py-2 rounded-full font-bold text-[10px] md:text-xs cursor-pointer transition-all uppercase tracking-wider shadow-sm hover:-translate-y-1">
+                                # ${item.title}
+                            </span>
+                        `;
+                        container.innerHTML += tagHTML;
+                    });
+                }
+            } catch (error) {
+                console.error("Trending error:", error);
+                document.getElementById("trending-keywords").innerHTML = `<span class="text-red-500 text-xs">Failed to load trends.</span>`;
+            }
+        }
+
+        async function loadMovies(page) {
+            if (isFetching) return;
+            isFetching = true;
+            document.getElementById("loading-spinner").style.display = "block"; 
+
+            try {
+                const response = await fetch(`${API_BASE}/api/home?page=${page}`);
+                if (!response.ok) throw new Error("Server Error");
+
+                const result = await response.json();
+                const moviesContainer = document.getElementById("movie-list");
+
+                let moviesArray = [];
+
+                function findMovies(obj) {
+                    if (!obj || typeof obj !== 'object') return;
+                    const id = obj.subjectId || obj.id || obj.vod_id || obj.videoId;
+                    const title = obj.title || obj.name || obj.vod_name;
+                    let rawPoster = obj.cover || obj.poster || obj.pic || obj.imageUrl || obj.vod_pic;
+                    let posterUrl = (typeof rawPoster === 'string') ? rawPoster : (rawPoster ? (rawPoster.url || rawPoster.pic || rawPoster.path || "") : "");
+
+                    if (id && title && posterUrl && !addedMovieIds.has(id)) {
+                        moviesArray.push({ id, title, poster: posterUrl, path: obj.detailPath || obj.path || "" });
+                        addedMovieIds.add(id);
+                    }
+                    for (let key in obj) {
+                        if (obj.hasOwnProperty(key)) {
+                            if (Array.isArray(obj[key])) {
+                                obj[key].forEach(child => findMovies(child));
+                            } else if (typeof obj[key] === 'object') {
+                                findMovies(obj[key]);
+                            }
+                        }
+                    }
+                }
+
+                findMovies(result.data);
+
+                moviesArray.forEach(movie => {
+                    const pathParam = movie.path ? `&path=${movie.path}` : "";
+                    
+                    const playLink = `${API_BASE}/play?id=${movie.id}${pathParam}`;
+                    const proxyImageLink = `${API_BASE}/image-proxy?url=${encodeURIComponent(movie.poster)}`;
+
+                    const movieHTML = `
+                        <a href="${playLink}" target="_blank" class="movie-card block">
+                            <div class="poster-container">
+                                <img src="${proxyImageLink}" class="poster-img" onerror="this.src='https://via.placeholder.com/300x450?text=POPULAR+MOVIE'">
+                                <div class="play-overlay">
+                                    <div class="play-btn-circle"><i class="fa-solid fa-play text-white"></i></div>
+                                </div>
+                            </div>
+                            <div class="p-3 md:p-4">
+                                <h3 class="text-white font-black text-[11px] md:text-sm uppercase truncate mb-1">${movie.title}</h3>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-red-500 text-[9px] md:text-[10px] font-bold uppercase tracking-widest border border-red-500/30 bg-red-500/10 px-2 py-0.5 rounded">Ultra 4K</span>
+                                </div>
+                            </div>
+                        </a>
+                    `;
+                    moviesContainer.innerHTML += movieHTML;
+                });
+
+                currentPage++; 
+
+            } catch (error) {
+                console.error("Movie load error:", error);
+            } finally {
+                isFetching = false;
+                document.getElementById("loading-spinner").style.display = "none"; 
+            }
+        }
+
+        window.addEventListener('scroll', () => {
+            if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 2000) {
+                loadMovies(currentPage);
+            }
+        });
+    </script>
+</body>
+</html>
